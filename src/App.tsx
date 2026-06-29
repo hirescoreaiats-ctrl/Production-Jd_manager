@@ -304,20 +304,31 @@ function OnboardingTour({
   }, [open, current.target]);
   if (!open) return null;
   const last = step === steps.length - 1;
+  const isSidebarTarget = spotlight ? spotlight.left < 300 : false;
   const tooltipStyle = spotlight
     ? {
         top: `${Math.max(
           20,
           Math.min(
             window.innerHeight - 330,
-            Math.max(20, spotlight.top + spotlight.height + 18),
+            Math.max(
+              20,
+              isSidebarTarget
+                ? spotlight.top - 20
+                : spotlight.top + spotlight.height + 18,
+            ),
           ),
         )}px`,
         left: `${Math.max(
           20,
           Math.min(
             window.innerWidth - 470,
-            Math.max(20, spotlight.left + spotlight.width / 2 - 215),
+            Math.max(
+              20,
+              isSidebarTarget
+                ? spotlight.left + spotlight.width + 24
+                : spotlight.left + spotlight.width / 2 - 215,
+            ),
           ),
         )}px`,
       }
