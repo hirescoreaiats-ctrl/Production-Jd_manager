@@ -196,14 +196,15 @@ function candidateInsights(jd: JD, resumes: ResumeRecord[] = []) {
 }
 function UpgradeCard() {
   return (
-    <div className="upgrade-card">
+    <div className="upgrade-card" data-tour="premium-dashboard">
       <div>
         <span>
           <Crown size={15} /> Pro
         </span>
-        <h3>Unlock AI ranking</h3>
+        <h3>Premium hiring dashboard</h3>
         <p>
-          Candidate score, explanation, profile summary, and shortlist workflow.
+          AI explanation, risk factors, communication, scheduling, and hiring
+          flow.
         </p>
       </div>
       <Button to="/settings" variant="upgrade">
@@ -222,9 +223,171 @@ function Logo() {
     </div>
   );
 }
+function OnboardingTour({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [step, setStep] = useState(0);
+  const [spotlight, setSpotlight] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const steps = [
+    {
+      title: "Click here to add a client",
+      body: "Start here. Add the company first so every role, resume folder, and candidate note stays under the right client.",
+      label: "Client setup",
+      target: "add-client",
+      action: "Click Add Client",
+    },
+    {
+      title: "Click here to create a role",
+      body: "After the client is ready, create the hiring role with JD, skills, experience, status, and shortlist settings.",
+      label: "Role details",
+      target: "create-role",
+      action: "Click Create Role",
+    },
+    {
+      title: "Open roles and resumes here",
+      body: "Use this section to see each role, candidate totals, uploaded resumes, and the next review action.",
+      label: "Resume intake",
+      target: "roles-nav",
+      action: "Open Roles & Resumes",
+    },
+    {
+      title: "Upgrade opens the full premium flow",
+      body: "Premium is not only ranking. It unlocks AI explanations, risk factors, automated communication, recruiter-ready summaries, interview scheduling, and the complete HireScore AI hiring dashboard.",
+      label: "Premium flow",
+      target: "premium-dashboard",
+      action: "Open premium dashboard",
+    },
+    {
+      title: "Reopen this guide anytime",
+      body: "If a recruiter gets confused, they can click Guide again and repeat this click-by-click walkthrough.",
+      label: "Help",
+      target: "guide",
+      action: "Click Guide",
+    },
+  ];
+  const current = steps[step];
+  useEffect(() => {
+    if (open) setStep(0);
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const updateSpotlight = () => {
+      const el = document.querySelector(`[data-tour="${current.target}"]`);
+      if (!el) {
+        setSpotlight(null);
+        return;
+      }
+      const r = el.getBoundingClientRect();
+      setSpotlight({
+        top: r.top,
+        left: r.left,
+        width: r.width,
+        height: r.height,
+      });
+    };
+    updateSpotlight();
+    window.addEventListener("resize", updateSpotlight);
+    window.addEventListener("scroll", updateSpotlight, true);
+    return () => {
+      window.removeEventListener("resize", updateSpotlight);
+      window.removeEventListener("scroll", updateSpotlight, true);
+    };
+  }, [open, current.target]);
+  if (!open) return null;
+  const last = step === steps.length - 1;
+  const tooltipStyle = spotlight
+    ? {
+        top: `${Math.max(
+          20,
+          Math.min(
+            window.innerHeight - 330,
+            Math.max(20, spotlight.top + spotlight.height + 18),
+          ),
+        )}px`,
+        left: `${Math.max(
+          20,
+          Math.min(
+            window.innerWidth - 470,
+            Math.max(20, spotlight.left + spotlight.width / 2 - 215),
+          ),
+        )}px`,
+      }
+    : undefined;
+  return (
+    <div className="tour-back guided" role="dialog" aria-modal="true">
+      {spotlight && (
+        <div
+          className="tour-spotlight"
+          style={{
+            top: spotlight.top - 8,
+            left: spotlight.left - 8,
+            width: spotlight.width + 16,
+            height: spotlight.height + 16,
+          }}
+        />
+      )}
+      <div className={spotlight ? "tour-card anchored" : "tour-card"} style={tooltipStyle}>
+        <div className="tour-top">
+          <span>
+            <Sparkles size={15} /> Click-by-click guide
+          </span>
+          <button onClick={onClose} aria-label="Close tour">
+            <X />
+          </button>
+        </div>
+        <div className="tour-progress">
+          {steps.map((s, i) => (
+            <button
+              key={s.label}
+              className={i === step ? "active" : ""}
+              onClick={() => setStep(i)}
+              aria-label={`Open step ${i + 1}: ${s.label}`}
+            />
+          ))}
+        </div>
+        <small>
+          Step {step + 1} of {steps.length} - {current.label}
+        </small>
+        <h2>{current.title}</h2>
+        <p>{current.body}</p>
+        <div className="tour-action-label">{current.action}</div>
+        <div className="tour-actions">
+          <Button variant="secondary" onClick={onClose}>
+            Skip
+          </Button>
+          <button
+            className="tour-next"
+            onClick={() => (last ? onClose() : setStep((x) => x + 1))}
+          >
+            {last ? "Finish tour" : "Next step"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function AppLayout() {
   const { logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    if (localStorage.getItem("hirescore_tour_seen") === "1") return;
+    const id = window.setTimeout(() => setTourOpen(true), 450);
+    return () => window.clearTimeout(id);
+  }, []);
+  const closeTour = () => {
+    localStorage.setItem("hirescore_tour_seen", "1");
+    setTourOpen(false);
+  };
   return (
     <div className="app-shell">
       <aside className={open ? "sidebar open" : "sidebar"}>
@@ -244,25 +407,25 @@ function AppLayout() {
           </div>
         </div>
         <nav>
-          <NavLink to="/dashboard">
+          <NavLink to="/dashboard" data-tour="dashboard-nav">
             <LayoutDashboard />
-            Hiring Dashboard
+            Dashboard
           </NavLink>
-          <NavLink to="/companies">
+          <NavLink to="/companies" data-tour="clients-nav">
             <Building2 />
-            Client Companies
+            Clients
           </NavLink>
-          <NavLink to="/jd-library">
+          <NavLink to="/jd-library" data-tour="roles-nav">
             <Users />
-            Candidate Pipeline
+            Roles & Resumes
           </NavLink>
           <NavLink to="/jd-library/new">
             <Plus />
-            Create Role
+            New Role
           </NavLink>
           <NavLink to="/jd-library/versions">
             <History />
-            Audit History
+            History
           </NavLink>
         </nav>
         <div className="sidebar-bottom">
@@ -287,6 +450,14 @@ function AppLayout() {
             <Search />
             <input placeholder="Search roles, candidates, or companies..." />
           </div>
+          <button
+            className="tour-launch"
+            data-tour="guide"
+            onClick={() => setTourOpen(true)}
+          >
+            <Sparkles />
+            Guide
+          </button>
           <Bell />
           <div className="mini-avatar">
             <User />
@@ -296,6 +467,7 @@ function AppLayout() {
           <Outlet />
         </main>
       </div>
+      <OnboardingTour open={tourOpen} onClose={closeTour} />
     </div>
   );
 }
@@ -325,6 +497,7 @@ function Button({
   type = "button",
   onClick,
   disabled,
+  tourId,
 }: {
   children: ReactNode;
   to?: string;
@@ -332,6 +505,7 @@ function Button({
   type?: "button" | "submit";
   onClick?: () => void;
   disabled?: boolean;
+  tourId?: string;
 }) {
   const n = useNavigate();
   return (
@@ -340,6 +514,7 @@ function Button({
       type={type}
       onClick={() => (to ? n(to) : onClick?.())}
       disabled={disabled}
+      data-tour={tourId}
     >
       {children}
     </button>
@@ -454,8 +629,8 @@ function Login() {
         <h1>HireScore AI</h1>
         <p>
           Free recruiter workspace for JDs, resume collection, and candidate
-          tracking. Upgrade when you need AI ranking, explanations, and
-          candidate profiles.
+          tracking. Upgrade into the premium HireScore AI dashboard for the
+          complete hiring flow.
         </p>
         <div className="login-proof">
           <span>
@@ -498,7 +673,7 @@ function Login() {
             </div>
           )}
           <div className="request">
-            Need AI scoring? <b>Upgrade inside HireScore AI</b>
+            Need the full AI hiring flow? <b>Upgrade inside HireScore AI</b>
           </div>
         </form>
         <footer>
@@ -528,37 +703,67 @@ function Dashboard() {
     ["Clients", companies.length, ""],
     ["Open roles", activeRoles, "green"],
     ["Candidates", candidateTotal, "blue"],
-    ["AI credits", "Pro", "purple"],
+    ["Premium flow", "Pro", "purple"],
     ["Draft roles", jds.filter((x) => x.status === "draft").length, "amber"],
   ];
   return (
     <>
       <PageHead
         title="Hiring Dashboard"
-        subtitle="Run the free recruiter workflow now. Upgrade HireScore AI when you want ranking, explanations, and candidate profiles."
+        subtitle="A simple workspace for client setup, role creation, resume intake, and shortlist review."
         action={
           <div className="actions">
-            <Button to="/companies/new" variant="secondary">
+            <Button to="/companies/new" variant="secondary" tourId="add-client">
               <Building2 />
               Add Client
             </Button>
-            <Button to="/jd-library/new">
+            <Button to="/jd-library/new" tourId="create-role">
               <Plus />
               Create Role
             </Button>
           </div>
         }
       />
+      <section className="workflow-strip" aria-label="Recruiter workflow">
+        <div className="workflow-step active">
+          <span>1</span>
+          <div>
+            <b>Add client</b>
+            <small>Create the company workspace.</small>
+          </div>
+        </div>
+        <div className="workflow-step">
+          <span>2</span>
+          <div>
+            <b>Create role</b>
+            <small>Save JD, skills, and status.</small>
+          </div>
+        </div>
+        <div className="workflow-step">
+          <span>3</span>
+          <div>
+            <b>Upload resumes</b>
+            <small>Attach files to the right role.</small>
+          </div>
+        </div>
+        <div className="workflow-step">
+          <span>4</span>
+          <div>
+            <b>Review shortlist</b>
+            <small>Open candidates and decide next steps.</small>
+          </div>
+        </div>
+      </section>
       <section className="ai-banner">
         <div>
           <span>
-            <Sparkles size={16} /> HireScore AI Pro
+            <Sparkles size={16} /> HireScore AI Premium
           </span>
-          <h2>Turn resume folders into ranked shortlists.</h2>
+          <h2>Upgrade to the complete hiring flow in one dashboard.</h2>
           <p>
-            Free plan keeps clients, roles, resumes, and audit history
-            organized. Paid plan adds candidate score, AI explanation, profile
-            creation, and shortlist handoff.
+            Premium connects AI explanation, risk factors, recruiter-ready
+            summaries, automated communication, interview scheduling, and
+            shortlist decisions inside the main HireScore AI tool.
           </p>
         </div>
         <Button to="/settings" variant="upgrade">
@@ -577,15 +782,15 @@ function Dashboard() {
         <section className="panel">
           <div className="panel-head">
             <div>
-              <h2>AI Shortlist Preview</h2>
+              <h2>Premium Hiring Flow Preview</h2>
               <p>
                 {topRole
-                  ? topRole.job_title
-                  : "Create a role to preview ranking"}
+                  ? `${topRole.job_title} automation`
+                  : "Create a role to preview the premium flow"}
               </p>
             </div>
             <span className="locked-pill">
-              <Crown size={13} /> Paid
+              <Crown size={13} /> Premium
             </span>
           </div>
           <div className="rank-list">
@@ -655,12 +860,12 @@ function Companies() {
   return (
     <>
       <PageHead
-        title="Companies"
+        title="Clients"
         subtitle="Manage clients, roles, and candidate intake."
         action={
           <Button to="/companies/new">
             <Plus />
-            Add Company
+            Add Client
           </Button>
         }
       />
@@ -1007,8 +1212,8 @@ function JDLibrary() {
   return (
     <>
       <PageHead
-        title="Candidate Pipeline"
-        subtitle="Manage roles, collect resumes, and prepare paid AI shortlists."
+        title="Roles & Resumes"
+        subtitle="Find each hiring role, check candidate totals, and open the right resume workflow."
         action={
           <Button to="/jd-library/new">
             <Plus />
@@ -1090,7 +1295,7 @@ function JDLibrary() {
                   <b>{uploadedResumes(store, j.id).length}</b>
                 </div>
                 <div>
-                  <small>AI score</small>
+                  <small>Premium fit</small>
                   <b>{j.shortlist_score}%</b>
                 </div>
               </div>
@@ -1494,7 +1699,7 @@ function JDDetail() {
   return (
     <>
       <div className="breadcrumb">
-        <NavLink to="/jd-library">Candidate Pipeline</NavLink>
+        <NavLink to="/jd-library">Roles & Resumes</NavLink>
         <span>{">"}</span>
         {j.job_title}
       </div>
@@ -1644,9 +1849,9 @@ function JDDetail() {
             <div className="ai-side-head">
               <div>
                 <span>
-                  <Crown size={13} /> Paid AI
+                  <Crown size={13} /> Premium AI
                 </span>
-                <h2>Candidate Ranking</h2>
+                <h2>Hiring Flow Preview</h2>
               </div>
               <b>{aiRows[0]?.score || j.shortlist_score}</b>
             </div>
@@ -2183,8 +2388,9 @@ function SettingsPage() {
               </span>
               <h3>HireScore AI Pro</h3>
               <p>
-                Unlock candidate ranking, AI explanations, profile summaries,
-                shortlist decisions, and hiring-flow automation.
+                Unlock AI explanations, risk factors, automated communication,
+                recruiter-ready summaries, interview scheduling, shortlist
+                decisions, and the premium hiring dashboard.
               </p>
             </div>
             <Button variant="upgrade">
